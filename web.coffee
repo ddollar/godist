@@ -9,6 +9,7 @@ semver  = require("semver")
 spawner = require("./lib/spawner").init()
 stdweb  = require("./lib/stdweb")
 store   = require("./lib/store").init("#{process.env.COUCHDB_URL}/godist")
+storage = require("./lib/storage").init()
 
 binary    = process.env.PROJECT.split("/").pop()
 platforms = process.env.PLATFORMS.split(" ")
@@ -113,44 +114,25 @@ app.post "/push/:id", (req, res) ->
       async.eachSeries platforms, ((platform, cb) ->
         console.log "building: #{platform}"
         store.fetch "project", project._id, (err, project) ->
-          doc = id:project._id, rev:project._rev
-          att = name:"release-#{version}-#{platform}", "Content-Type":"application/octet-stream"
-          writer = store.db.saveAttachment doc, att, (err, reply) ->
+          binary = ""
+          reader = request.get("https://gobuild.herokuapp.com/#{project.repo}/#{ref}/#{platform}")
+          reader.on "data", (data) ->
+            binary += data.toString("binary")
+          reader.on "end", ->
             console.log "build complete: #{platform}"
-            cb null
-          request.get("https://gobuild.herokuapp.com/#{project.repo}/#{ref}/#{platform}").pipe(writer)),
+            console.log "uploading: #{platform}"
+            storage.create "/#{project.repo}/#{version}/#{platform.replace("/","-")}", binary, (err, res) ->
+              console.log "upload finished: #{platform}"
+              cb err),
       (err) ->
-        project.versions.push(version)
         store.update "project", project._id, versions:project.versions, (err, project) ->
-          console.log "build complete"
-
-app.get "/release/:user/:repo/:version/:os/:arch/:name.:type?", (req, res) ->
-  repo = "#{req.params.user}/#{req.params.repo}"
-  store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
-    return res.send("error", 403) if err
-    return res.send("no such project", 403) unless existing.length is 1
-    project = existing[0]
-    version = req.params.version
-    version = project.versions[project.versions.length-1] if version is "current"
-    attachment = "release-#{version}-#{req.params.os}/#{req.params.arch}"
-    return res.send("no such release", 403) unless project._attachments[attachment]
-    reader = store.db.getAttachment project._id, "release-#{version}-#{req.params.os}/#{req.params.arch}", (err) ->
-      console.log "err", err
-    reader.pipe res
+          console.log "builds complete"
 
 app.get "/projects/:user/:repo/releases/:version/:os-:arch/:name.:type?", (req, res) ->
-  repo = "#{req.params.user}/#{req.params.repo}"
-  store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
-    return res.send("error", 403) if err
-    return res.send("no such project", 403) unless existing.length is 1
-    project = existing[0]
-    version = req.params.version
-    version = project.versions[project.versions.length-1] if version is "current"
-    attachment = "release-#{version}-#{req.params.os}/#{req.params.arch}"
-    return res.send("no such release", 403) unless project._attachments[attachment]
-    reader = store.db.getAttachment project._id, "release-#{version}-#{req.params.os}/#{req.params.arch}", (err) ->
-      console.log "err", err
-    reader.pipe res
+  filename = "#{req.params.user}/#{req.params.repo}/#{req.params.version}/#{req.params.os}-#{req.params.arch}"
+  storage.exists filename, (err, exists) ->
+    return res.send("no such release", 403) unless exists
+    storage.get filename, (err, get) -> get.pipe(res)
 
 app.get "/projects/:user/:repo/releases/:os-:arch", (req, res) ->
   repo = "#{req.params.user}/#{req.params.repo}"
