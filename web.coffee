@@ -130,10 +130,16 @@ app.post "/push/:id", (req, res) ->
           console.log "builds complete"
 
 app.get "/projects/:user/:repo/releases/:version/:os-:arch/:name.:type?", (req, res) ->
-  filename = "#{req.params.user}/#{req.params.repo}/#{req.params.version}/#{req.params.os}-#{req.params.arch}"
-  storage.exists filename, (err, exists) ->
-    return res.send("no such release", 403) unless exists
-    storage.get filename, (err, get) -> get.pipe(res)
+  repo = "#{req.params.user}/#{req.params.repo}"
+  store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
+    return res.send("no such release", 403) unless existing.length is 1
+    project = existing[0]
+    version = req.params.version
+    version = project.versions[project.versions.length-1] if version is "current"
+    filename = "#{repo}/#{version}/#{req.params.os}-#{req.params.arch}"
+    storage.exists filename, (err, exists) ->
+      return res.send("no such release", 403) unless exists
+      storage.get filename, (err, get) -> get.pipe(res)
 
 app.get "/projects/:user/:repo/releases/:os-:arch", (req, res) ->
   repo = "#{req.params.user}/#{req.params.repo}"
