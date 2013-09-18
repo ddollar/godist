@@ -125,6 +125,7 @@ app.post "/push/:id", (req, res) ->
               console.log "upload finished: #{platform}"
               cb err),
       (err) ->
+        project.versions.push(version)
         store.update "project", project._id, versions:project.versions, (err, project) ->
           console.log "builds complete"
 
