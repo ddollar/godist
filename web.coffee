@@ -11,7 +11,6 @@ stdweb  = require("./lib/stdweb")
 store   = require("./lib/store").init("#{process.env.COUCHDB_URL}/godist")
 storage = require("./lib/storage").init()
 
-binary    = process.env.PROJECT.split("/").pop()
 platforms = process.env.PLATFORMS.split(" ")
 
 oauth = require("github-oauth")
