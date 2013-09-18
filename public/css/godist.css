@@ -1,0 +1,19 @@
+th.expand, td.expand {
+  width: 100%;
+}
+
+th.nowrap, td.nowrap {
+  white-space: nowrap;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+form {
+  margin-bottom: 0
+}
+
+#project-new select {
+  margin-right: 10px;
+}

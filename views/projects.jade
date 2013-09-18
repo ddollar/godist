@@ -1,0 +1,30 @@
+extends layout
+
+block content
+
+  table.table.table-striped.table-bordered#projects
+    thead
+      tr
+        th.expand Repo
+        th.nowrap Current Release
+        th.nowrap Post-Receive Hook
+    tbody
+      each project in projects
+        tr
+          td.expand= project.repo
+          td.expand= current_version(project)
+          td.nowrap.hook
+            if (hook_enabled(project))
+              form(method="post", action="/projects/#{project._id}/unhook")
+                input(type="submit", value="Disable").btn.btn-danger
+            else
+              form(method="post", action="/projects/#{project._id}/hook")
+                input(type="submit", value="Enable").btn.btn-success
+    tfoot
+      tr
+        td(colspan=3)
+          form(method="post", action="/projects").form-inline#project-new
+            select(name="repo")
+              each repo in repos
+                option= repo.full_name
+            input(type="submit", value="Register Project").btn.btn-primary
