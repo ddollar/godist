@@ -172,10 +172,11 @@ app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
               mktmpdir (err, dir) ->
                 ps = spawner.spawn "vendor/bin/bsdiff #{results.from} #{results.to} #{dir}/patch", env:{}
                 ps.on "end", ->
-                  fd = fs.createReadStream("#{dir}/patch")
-                  fd.on "open", ->
-                    storage.create_stream filename, fd, (err) -> console.log "s3err", err
-                    fd.pipe(res)
+                  fs.stat "#{dir}/patch", (err, stat) ->
+                    fd = fs.createReadStream("#{dir}/patch")
+                    fd.on "open", ->
+                      storage.create_stream filename, fd, stat.size, (err) -> console.log "s3err", err
+                      fd.pipe(res)
 
 app.get "/projects/:user/:repo/releases/:os-:arch", (req, res) ->
   repo = "#{req.params.user}/#{req.params.repo}"
