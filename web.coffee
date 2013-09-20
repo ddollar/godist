@@ -168,9 +168,9 @@ app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
               storage.get "#{repo}/#{to}/#{req.params.os}-#{req.params.arch}", (err, get) ->
                 get.pipe(fd)
                 get.on "end", -> cb null, "#{dir}/to"
-            (err, res) ->
+            (err, results) ->
               mktmpdir (err, dir) ->
-                ps = spawner.spawn "vendor/bin/bsdiff #{res.from} #{res.to} #{dir}/patch", env:{}
+                ps = spawner.spawn "vendor/bin/bsdiff #{results.from} #{results.to} #{dir}/patch", env:{}
                 ps.on "end", ->
                   fd = fs.createReadStream("#{dir}/patch")
                   fd.on "open", ->
