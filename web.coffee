@@ -1,15 +1,17 @@
-async   = require("async")
-coffee  = require("coffee-script")
-dd      = require("./lib/dd")
-express = require("express")
-github  = require("./lib/github")
-log     = require("./lib/logger").init("godist")
-request = require("request")
-semver  = require("semver")
-spawner = require("./lib/spawner").init()
-stdweb  = require("./lib/stdweb")
-store   = require("./lib/store").init("#{process.env.COUCHDB_URL}/godist")
-storage = require("./lib/storage").init()
+async    = require("async")
+coffee   = require("coffee-script")
+dd       = require("./lib/dd")
+express  = require("express")
+fs       = require("fs")
+github   = require("./lib/github")
+log      = require("./lib/logger").init("godist")
+mktmpdir = require("mktmpdir")
+request  = require("request")
+semver   = require("semver")
+spawner  = require("./lib/spawner").init()
+stdweb   = require("./lib/stdweb")
+store    = require("./lib/store").init("#{process.env.COUCHDB_URL}/godist")
+storage  = require("./lib/storage").init()
 
 platforms = process.env.PLATFORMS.split(" ")
 
@@ -139,6 +141,41 @@ app.get "/projects/:user/:repo/releases/:version/:os-:arch/:name.:type?", (req, 
     storage.exists filename, (err, exists) ->
       return res.send("no such release", 403) unless exists
       storage.get filename, (err, get) -> get.pipe(res)
+
+app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
+  repo = "#{req.params.user}/#{req.params.repo}"
+  store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
+    return res.send("no such release", 403) unless existing.length is 1
+    project = existing[0]
+    from = req.params.from
+    to = req.params.to
+    return res.send("no such from", 403) unless project.versions.indexOf(from) > -1
+    return res.send("no such to", 403) unless project.versions.indexOf(to) > -1
+    filename = "#{repo}/#{from}-#{to}/#{req.params.os}-#{req.params.arch}"
+    storage.exists filename, (err, exists) ->
+      if exists
+        storage.get filename, (err, get) -> get.pipe(res)
+      else
+        mktmpdir (err, dir) ->
+          async.parallel
+            from: (cb) ->
+              fd = fs.createWriteStream("#{dir}/from")
+              storage.get "#{repo}/#{from}/#{req.params.os}-#{req.params.arch}", (err, get) ->
+                get.pipe(fd)
+                get.on "end", -> cb null, "#{dir}/from"
+            to: (cb) ->
+              fd = fs.createWriteStream("#{dir}/to")
+              storage.get "#{repo}/#{to}/#{req.params.os}-#{req.params.arch}", (err, get) ->
+                get.pipe(fd)
+                get.on "end", -> cb null, "#{dir}/to"
+            (err, res) ->
+              mktmpdir (err, dir) ->
+                ps = spawner.spawn "vendor/bin/bsdiff #{res.from} #{res.to} #{dir}/patch", env:{}
+                ps.on "end", ->
+                  fd = fs.createReadStream("#{dir}/patch")
+                  fd.on "open", ->
+                    storage.create_stream filename, fd, (err) -> console.log "s3err", err
+                    fd.pipe(res)
 
 app.get "/projects/:user/:repo/releases/:os-:arch", (req, res) ->
   repo = "#{req.params.user}/#{req.params.repo}"

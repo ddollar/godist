@@ -11,6 +11,7 @@
     "github-oauth":  "0.0.x",
     "jade":          "0.35.x",
     "knox":          "0.8.x",
+    "mktmpdir":      "0.1.x",
     "nodemon":       "0.7.x",
     "node-uuid":     "1.4.x",
     "parse-links":   "0.0.x",

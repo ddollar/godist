@@ -15,6 +15,9 @@ class Storage
   create: (filename, data, cb) ->
     @knox.putBuffer new Buffer(data, "binary"), filename, cb
 
+  create_stream: (filename, stream, cb) ->
+    @knox.putStream stream, filename, cb
+
   exists: (filename, cb) ->
     @knox.headFile filename, (err, res) ->
       cb err, (res.statusCode != 404)
