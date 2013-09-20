@@ -1,6 +1,7 @@
 async    = require("async")
 coffee   = require("coffee-script")
 dd       = require("./lib/dd")
+escape   = require("shell-escape")
 express  = require("express")
 fs       = require("fs")
 github   = require("./lib/github")
@@ -170,7 +171,7 @@ app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
                 get.on "end", -> cb null, "#{dir}/to"
             (err, results) ->
               mktmpdir (err, dir) ->
-                ps = spawner.spawn "vendor/bin/bsdiff #{results.from} #{results.to} #{dir}/patch", env:{}
+                ps = spawner.spawn "vendor/bin/bsdiff #{escape([results.from, results.to])} #{dir}/patch", env:{}
                 ps.on "end", ->
                   fs.stat "#{dir}/patch", (err, stat) ->
                     fd = fs.createReadStream("#{dir}/patch")

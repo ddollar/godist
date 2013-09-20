@@ -17,7 +17,8 @@
     "parse-links":   "0.0.x",
     "request":       "2.27.x",
     "restler":       "2.0.x",
-    "semver":        "2.1.x"
+    "semver":        "2.1.x",
+    "shell-escape":  "0.0.x"
   },
 
   "engines": {
