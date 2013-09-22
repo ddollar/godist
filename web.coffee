@@ -87,8 +87,6 @@ app.get "/projects/:id/releases/:version", (req, res) ->
         ax[platform] = head
         cb err, ax),
     (err, heads) ->
-      console.log "err", err
-      console.log "heads", heads
       res.render "version.jade", project:project, version:version, heads:heads
 
 app.post "/projects", auth_required, (req, res) ->
