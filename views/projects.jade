@@ -12,7 +12,11 @@ block content
       each project in projects
         tr
           td.expand= project.repo
-          td.expand= current_version(project)
+          td.expand
+            if (version = current_version(project)) == 'none'
+              span none
+            else
+              a(href="/projects/#{project._id}/releases/#{version}")= version
           td.nowrap.hook
             if (hook_enabled(project))
               form(method="post", action="/projects/#{project._id}/unhook")

@@ -41,6 +41,11 @@ app.use (req, res, next) ->
     false
   res.locals.current_version = (project) ->
     project.versions[project.versions.length-1] || "none"
+  res.locals.platforms = platforms
+  res.locals.format_bytes = (bytes, label) ->
+    num = parseInt(Math.floor(Math.log(bytes) / Math.log(1024*1024)))
+    total = Math.round(bytes * 100 / (1024 * 1024)) / 100
+    parseFloat(total).toFixed(2).toString()
   next()
 app.use (req, res, next) ->
   if req.cookies.token
@@ -74,6 +79,18 @@ app.get "/projects", auth_required, (req, res) ->
             (err, projects) ->
               res.render "projects.jade", projects:projects, repos:repos
 
+app.get "/projects/:id/releases/:version", (req, res) ->
+  version = req.params.version
+  store.fetch "project", req.params.id, (err, project) ->
+    async.reduce platforms, {}, ((ax, platform, cb) ->
+      storage.head "/#{project.repo}/#{version}/#{platform.replace('/','-')}", (err, head) ->
+        ax[platform] = head
+        cb err, ax),
+    (err, heads) ->
+      console.log "err", err
+      console.log "heads", heads
+      res.render "version.jade", project:project, version:version, heads:heads
+
 app.post "/projects", auth_required, (req, res) ->
   store.view "project", "by_repo", startkey:req.body.repo, endkey:req.body.repo, (err, existing) ->
     if existing.length is 0
@@ -104,6 +121,21 @@ app.post "/projects/:id/unhook", auth_required, (req, res) ->
           cb null),
       (err) ->
         res.redirect "/projects"
+
+app.post "/projects/:id/releases/:version/:os-:arch/rebuild", (req, res) ->
+  platform = "#{req.params.os}/#{req.params.arch}"
+  store.fetch "project", req.params.id, (err, project) ->
+    console.log "building: #{platform}"
+    binary = ""
+    reader = request.get("https://gobuild.herokuapp.com/#{project.repo}/v#{req.params.version}/#{platform}")
+    reader.on "data", (data) ->
+      binary += data.toString("binary")
+    reader.on "end", ->
+      console.log "build complete: #{platform}"
+      console.log "uploading: #{platform}"
+      storage.create "/#{project.repo}/#{req.params.version}/#{platform.replace("/","-")}", binary, (err) ->
+        console.log "upload finished: #{platform}"
+        res.redirect "/projects/#{req.params.id}/releases/#{req.params.version}"
 
 app.post "/push/:id", (req, res) ->
   store.fetch "project", req.params.id, (err, project) ->

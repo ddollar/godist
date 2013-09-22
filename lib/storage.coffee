@@ -26,5 +26,9 @@ class Storage
     @knox.getFile filename, (err, get) ->
       cb null, get
 
+  head: (filename, cb) ->
+    @knox.headFile filename, (err, res) ->
+      cb err, res.headers
+
 module.exports.init = () ->
   new Storage()

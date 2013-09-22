@@ -1,0 +1,23 @@
+extends layout
+
+block content
+
+  h3.pull-right= version
+  h2= project.repo
+
+  table.table.table-striped.table-bordered#version
+    thead
+      tr
+        th.expand Architecture
+        th.nowrap Size
+        th.nowrap 
+    tbody
+      each platform in platforms
+        tr
+          td.expand= platform
+          td.nowrap
+            = format_bytes(heads[platform]['content-length'])
+            = " MB"
+          td
+            form(method="post", action="/projects/#{project._id}/releases/#{version}/#{platform.replace('/','-')}/rebuild")
+              input(type="submit", value="Rebuild").btn.btn-danger
