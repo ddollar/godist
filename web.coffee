@@ -125,7 +125,7 @@ app.post "/projects/:id/releases/:version/:os-:arch/rebuild", (req, res) ->
   store.fetch "project", req.params.id, (err, project) ->
     console.log "building: #{platform}"
     binary = ""
-    reader = request.get("https://gobuild.herokuapp.com/#{project.repo}/v#{req.params.version}/#{platform}")
+    reader = request.get("#{process.env.GOBUILD_HOST}/#{project.repo}/v#{req.params.version}/#{platform}")
     reader.on "data", (data) ->
       binary += data.toString("binary")
     reader.on "end", ->
@@ -147,7 +147,7 @@ app.post "/push/:id", (req, res) ->
         console.log "building: #{platform}"
         store.fetch "project", project._id, (err, project) ->
           binary = ""
-          reader = request.get("https://gobuild.herokuapp.com/#{project.repo}/#{ref}/#{platform}")
+          reader = request.get("#{process.env.GOBUILD_HOST}/#{project.repo}/#{ref}/#{platform}")
           reader.on "data", (data) ->
             binary += data.toString("binary")
           reader.on "end", ->
