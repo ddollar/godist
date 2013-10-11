@@ -162,52 +162,57 @@ app.post "/push/:id", (req, res) ->
           console.log "builds complete"
 
 app.get "/projects/:user/:repo/releases/:version/:os-:arch/:name.:type?", (req, res) ->
-  repo = "#{req.params.user}/#{req.params.repo}"
-  store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
-    return res.send("no such release", 403) unless existing.length is 1
-    project = existing[0]
-    version = req.params.version
-    version = project.versions[project.versions.length-1] if version is "current"
-    filename = "#{repo}/#{version}/#{req.params.os}-#{req.params.arch}"
-    storage.exists filename, (err, exists) ->
-      return res.send("no such release", 403) unless exists
-      storage.get filename, (err, get) -> get.pipe(res)
+  log.start "download", project:"#{req.params.user}/#{req.params.project}", version:req.params.version, platform:"#{req.params.os}-#{req.params.arch}", (log) ->
+    repo = "#{req.params.user}/#{req.params.repo}"
+    store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
+      return res.send("no such release", 403) unless existing.length is 1
+      project = existing[0]
+      version = req.params.version
+      version = project.versions[project.versions.length-1] if version is "current"
+      filename = "#{repo}/#{version}/#{req.params.os}-#{req.params.arch}"
+      storage.exists filename, (err, exists) ->
+        return res.send("no such release", 403) unless exists
+        storage.get filename, (err, get) ->
+          get.pipe(res)
+          get.on "end", -> log.success()
 
 app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
-  repo = "#{req.params.user}/#{req.params.repo}"
-  store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
-    return res.send("no such release", 403) unless existing.length is 1
-    project = existing[0]
-    from = req.params.from
-    to = req.params.to
-    return res.send("no such from", 403) unless project.versions.indexOf(from) > -1
-    return res.send("no such to", 403) unless project.versions.indexOf(to) > -1
-    filename = "#{repo}/#{from}-#{to}/#{req.params.os}-#{req.params.arch}"
-    storage.exists filename, (err, exists) ->
-      if exists
-        storage.get filename, (err, get) -> get.pipe(res)
-      else
-        mktmpdir (err, dir) ->
-          async.parallel
-            from: (cb) ->
-              fd = fs.createWriteStream("#{dir}/from")
-              storage.get "#{repo}/#{from}/#{req.params.os}-#{req.params.arch}", (err, get) ->
-                get.pipe(fd)
-                get.on "end", -> cb null, "#{dir}/from"
-            to: (cb) ->
-              fd = fs.createWriteStream("#{dir}/to")
-              storage.get "#{repo}/#{to}/#{req.params.os}-#{req.params.arch}", (err, get) ->
-                get.pipe(fd)
-                get.on "end", -> cb null, "#{dir}/to"
-            (err, results) ->
-              mktmpdir (err, dir) ->
-                ps = spawner.spawn "vendor/bin/bsdiff #{escape([results.from, results.to])} #{dir}/patch", env:{}
-                ps.on "end", ->
-                  fs.stat "#{dir}/patch", (err, stat) ->
-                    fd = fs.createReadStream("#{dir}/patch")
-                    fd.on "open", ->
-                      storage.create_stream filename, fd, stat.size, (err) -> console.log "s3err", err
-                      fd.pipe(res)
+  log.start "download", project:"#{req.params.user}/#{req.params.project}", from:req.params.from, to:req.params.to, platform:"#{req.params.os}-#{req.params.arch}", (log) ->
+    repo = "#{req.params.user}/#{req.params.repo}"
+    store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
+      return res.send("no such release", 403) unless existing.length is 1
+      project = existing[0]
+      from = req.params.from
+      to = req.params.to
+      return res.send("no such from", 403) unless project.versions.indexOf(from) > -1
+      return res.send("no such to", 403) unless project.versions.indexOf(to) > -1
+      filename = "#{repo}/#{from}-#{to}/#{req.params.os}-#{req.params.arch}"
+      storage.exists filename, (err, exists) ->
+        if exists
+          storage.get filename, (err, get) -> get.pipe(res)
+        else
+          mktmpdir (err, dir) ->
+            async.parallel
+              from: (cb) ->
+                fd = fs.createWriteStream("#{dir}/from")
+                storage.get "#{repo}/#{from}/#{req.params.os}-#{req.params.arch}", (err, get) ->
+                  get.pipe(fd)
+                  get.on "end", -> cb null, "#{dir}/from"
+              to: (cb) ->
+                fd = fs.createWriteStream("#{dir}/to")
+                storage.get "#{repo}/#{to}/#{req.params.os}-#{req.params.arch}", (err, get) ->
+                  get.pipe(fd)
+                  get.on "end", -> cb null, "#{dir}/to"
+              (err, results) ->
+                mktmpdir (err, dir) ->
+                  ps = spawner.spawn "vendor/bin/bsdiff #{escape([results.from, results.to])} #{dir}/patch", env:{}
+                  ps.on "end", ->
+                    fs.stat "#{dir}/patch", (err, stat) ->
+                      fd = fs.createReadStream("#{dir}/patch")
+                      fd.on "open", ->
+                        storage.create_stream filename, fd, stat.size, (err) -> console.log "s3err", err
+                        fd.pipe(res)
+                        fd.on "end", -> log.success()
 
 app.get "/projects/:user/:repo/releases/:os-:arch", (req, res) ->
   repo = "#{req.params.user}/#{req.params.repo}"
