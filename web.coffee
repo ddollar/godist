@@ -189,7 +189,9 @@ app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
       filename = "#{repo}/#{from}-#{to}/#{req.params.os}-#{req.params.arch}"
       storage.exists filename, (err, exists) ->
         if exists
-          storage.get filename, (err, get) -> get.pipe(res)
+          storage.get filename, (err, get) ->
+            get.pipe(res)
+            log.success cache:true
         else
           mktmpdir (err, dir) ->
             async.parallel
@@ -212,7 +214,8 @@ app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
                       fd.on "open", ->
                         storage.create_stream filename, fd, stat.size, (err) -> console.log "s3err", err
                         fd.pipe(res)
-                        fd.on "end", -> log.success()
+                        fd.on "end", ->
+                          log.success cache:false
 
 app.get "/projects/:user/:repo/releases/:os-:arch", (req, res) ->
   repo = "#{req.params.user}/#{req.params.repo}"
