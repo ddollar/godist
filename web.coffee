@@ -177,7 +177,7 @@ app.get "/projects/:user/:repo/releases/:version/:os-:arch/:name.:type?", (req, 
           get.on "end", -> log.success()
 
 app.get "/projects/:user/:repo/diff/:from/:to/:os-:arch", (req, res) ->
-  log.start "download", project:"#{req.params.user}/#{req.params.repo}", from:req.params.from, to:req.params.to, platform:"#{req.params.os}-#{req.params.arch}", (log) ->
+  log.start "diff", project:"#{req.params.user}/#{req.params.repo}", from:req.params.from, to:req.params.to, platform:"#{req.params.os}-#{req.params.arch}", (log) ->
     repo = "#{req.params.user}/#{req.params.repo}"
     store.view "project", "by_repo", startkey:repo, endkey:repo, (err, existing) ->
       return res.send("no such release", 403) unless existing.length is 1
