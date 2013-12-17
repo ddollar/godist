@@ -9,7 +9,10 @@ exports.Github = class Github
     @get_items "https://api.github.com#{path}?access_token=#{@token}&client_id=#{process.env.OAUTH_CLIENT_ID}&client_secret=#{process.env.OAUTH_CLIENT_SECRET}&per_page=100", cb
 
   get_items: (url, cb) ->
-    request.get url, (err, res, body) =>
+    opts =
+      headers:
+        "User-Agent": "github.com/ddollar/godist"
+    request.get url, opts, (err, res, body) =>
       return cb(err) if err
       items = JSON.parse(body)
       return cb(null, items) unless res.headers.link
